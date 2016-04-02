@@ -1,0 +1,7 @@
+*.jpg
+node_modules
+*.json
+images
+gifs
+chemcam
+chemtest
