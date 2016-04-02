@@ -33,7 +33,8 @@ var previousImage;
 
 function chemcam() {
   fs.mkdirSync(CHEMDIR);
-  var files = readDir.readSync(path.join(__dirname, 'chemtest'), ['**.jpg'], readDir.ABSOLUTE_PATHS);
+  var files = readDir.readSync(path.join(__dirname, 'chemtest'), 
+    ['**.jpg'], readDir.ABSOLUTE_PATHS);
   var chemcamFiles = [];
   var wc = 0;
   _.each(files, function(p) {

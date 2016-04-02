@@ -22,21 +22,15 @@ var pageCount = 0
 var imgs = []
 var YEARS = (() => {
     var _years = [];
-    while (_years.length < 20) {
+    var _start = 2012;
+    while (_years.length < (new Date().getUTCFullYear() + 1) - _start) {
         _years.push(2012 + _years.length)
     }
-    return _years
+    return _years;
 }());
 
 var OUTPUT_FOLDER = yargs.dir || 'images';
-
-/*
-
-BROKEN
-
-August
-Sept
-*/
+var API_KEY = "Ru46bKZ7yl29jqKB7C9WYd8W91NEeay5TEsrlRAl"
 
 function _getData(date) {
     var dataDir = yargs.noDateDir ? '/' : date;
@@ -53,12 +47,18 @@ function _getData(date) {
             if (yargs.camera) {
                 qs.camera = yargs.camera;
             }
-            var url = "https://api.nasa.gov/mars-photos/api/v1/rovers/curiosity/photos?&api_key=Ru46bKZ7yl29jqKB7C9WYd8W91NEeay5TEsrlRAl";
+            console.log(qs);
+            var url = `https://api.nasa.gov/mars-photos/api/v1/rovers/curiosity/photos?&api_key=${API_KEY}`;
             r({
                 url: url,
                 qs: qs
             }, function(err, data, body) {
                 var p = JSON.parse(body);
+                if (p.error) {
+                    console.log(p.error);
+                    reject();
+                    return;
+                }
                 if (!p.photos) {
                     console.log('No more images');
                     resolve();
@@ -69,13 +69,17 @@ function _getData(date) {
                     resolve();
                 }
                 _.each(p.photos, function(i) {
-                    imgs.push({
-                        dir: dir,
-                        url: i.img_src,
-                        camera: i.camera.name,
-                        date: i.earth_date,
-                        id: i.id
-                    });
+                    var _saveFile = path.join(dir, `${i.camera.name}_${i.id}.jpg`);
+                    if (!fs.existsSync) {
+                        imgs.push({
+                            dir: dir,
+                            url: i.img_src,
+                            saveFile: _saveFile,
+                            camera: i.camera.name,
+                            date: i.earth_date,
+                            id: i.id
+                        });
+                    }
                 });
                 console.log(imgs.length, ' images for ', date);
                 pageCount++;
@@ -109,23 +113,17 @@ function _doMonth(year, month, days) {
                 });
                 _r.on('response', function(resp) {
                     if (resp.statusCode === 200) {
-                        var fileName = path.join(img.dir, `${img.camera}_${img.id}.jpg`);
-                        if (!fs.existsSync(fileName)) {
-                            var s = fs.createWriteStream(fileName);
-                            s.on('error', function(err) {
-                                console.log('pipe error on:', img.url);
-                                resolve();
-                            });
-                            s.on('finish', function(err) {
-                                console.log('\t Completed', fileName);
-                                resolve();
-                            });
-                            _r.pipe(s);
-                            _r.resume();
-                        } else {
-                            console.log('\t Exists', fileName);
+                        var s = fs.createWriteStream(img.saveFile);
+                        s.on('error', function(err) {
+                            console.log('pipe error on:', img.url);
                             resolve();
-                        }
+                        });
+                        s.on('finish', function(err) {
+                            console.log('\t Completed', fileName);
+                            resolve();
+                        });
+                        _r.pipe(s);
+                        _r.resume();
                     } else {
                         resolve();
                     }
@@ -174,7 +172,6 @@ function start() {
         return _doYear(yargs.year)
     } else {
         return Prom.map(YEARS, function(year) {
-          console.log(year);
             return _doYear(year)
         }, {
             concurrency: 1
